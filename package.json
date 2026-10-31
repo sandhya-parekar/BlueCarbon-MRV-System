@@ -1,0 +1,22 @@
+{
+  "name": "bluecarbon-mrv-system",
+  "version": "1.0.0",
+  "description": "An Uncertainty-Aware Verification Prioritization Framework for Blockchain-Based Blue Carbon MRV Systems",
+  "scripts": {
+    "start:backend": "cd backend && python run.py",
+    "start:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "deploy:blockchain": "cd blockchain && python deploy_ganache.py"
+  },
+  "keywords": [
+    "blue-carbon",
+    "mrv",
+    "blockchain",
+    "fastapi",
+    "react",
+    "solidity",
+    "bootstrap-uncertainty"
+  ],
+  "author": "MCA Semester III Research Project Team",
+  "license": "MIT"
+}

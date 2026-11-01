@@ -19,7 +19,13 @@ class DatabaseManager:
         "tree_measurements": [],
         "plot_biomass": {},
         "verification_tasks": {},
-        "blockchain_registry": []
+        "blockchain_registry": [],
+        "plant_species": {},
+        "planting_projects": {},
+        "plant_monitoring": {},
+        "support_tickets": {},
+        "ticket_messages": {},
+        "notifications": {}
     }
 
 db_manager = DatabaseManager()
@@ -46,6 +52,15 @@ async def connect_to_mongo():
         await db_manager.db.tree_measurements.create_index([("plot_id", 1), ("tree_id", 1)])
         await db_manager.db.plot_biomass.create_index("plot_id", unique=True)
         await db_manager.db.blockchain_registry.create_index("plot_id")
+        await db_manager.db.planting_projects.create_index("user_id")
+        await db_manager.db.planting_projects.create_index("species_id")
+        await db_manager.db.plant_monitoring.create_index("project_id")
+        await db_manager.db.plant_monitoring.create_index("user_id")
+        await db_manager.db.support_tickets.create_index("user_id")
+        await db_manager.db.support_tickets.create_index("status")
+        await db_manager.db.support_tickets.create_index("assigned_to_id")
+        await db_manager.db.ticket_messages.create_index("ticket_id")
+        await db_manager.db.notifications.create_index([("user_id", 1), ("is_read", 1)])
         
     except Exception as e:
         db_manager.is_connected = False

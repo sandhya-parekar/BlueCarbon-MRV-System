@@ -1,12 +1,15 @@
+from enum import Enum
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 # --- Auth Models ---
-class UserRole(str):
+class UserRole(str, Enum):
     ADMIN = "Admin"
     RESEARCHER = "Researcher"
     VERIFICATION_OFFICER = "Verification Officer"
+    COMMUNITY_USER = "community_user"
+    COMMUNITY_USER_DISPLAY = "Community User"
 
 class UserCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
@@ -14,6 +17,23 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
     role: str = Field(default=UserRole.RESEARCHER)
     organization: Optional[str] = "Blue Carbon MRV Consortium"
+    mobile_number: Optional[str] = None
+    country: Optional[str] = "India"
+    state: Optional[str] = None
+    district: Optional[str] = None
+    user_type: Optional[str] = None
+
+class CommunityUserRegister(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    confirm_password: str = Field(..., min_length=6)
+    mobile_number: Optional[str] = Field(default="", max_length=20)
+    country: str = Field(default="India", max_length=100)
+    state: str = Field(..., min_length=2, max_length=100)
+    district: Optional[str] = Field(default="", max_length=100)
+    user_type: str = Field(default="Farmer") # Individual, Farmer, Student, NGO, Volunteer, Other
+    organization: Optional[str] = Field(default="Community Restoration Group")
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -25,6 +45,11 @@ class UserResponse(BaseModel):
     email: str
     role: str
     organization: Optional[str] = None
+    mobile_number: Optional[str] = None
+    country: Optional[str] = "India"
+    state: Optional[str] = None
+    district: Optional[str] = None
+    user_type: Optional[str] = None
     created_at: Optional[datetime] = None
 
 class Token(BaseModel):
@@ -214,3 +239,326 @@ class BlockchainStatusResponse(BaseModel):
     current_block: int
     total_transactions_recorded: int
     ledger_integrity_verified: bool
+
+# --- Plant Growth & Blue Carbon Planner Models ---
+
+class PlantSpeciesModel(BaseModel):
+    id: str
+    common_name: str
+    scientific_name: str
+    family: str
+    category: str
+    is_mangrove: bool
+    native_regions: List[str]
+    suitable_states: List[str]
+    suitable_districts: Optional[List[str]] = None
+    suitable_locations: List[str]
+    suitable_soil_types: List[str]
+    suitable_land_types: List[str]
+    suitable_water_conditions: List[str]
+    salinity_tolerance_ppt: Dict[str, float]
+    tidal_frequency: str
+    planting_purposes: List[str]
+    recommended_spacing_m: float
+    min_spacing_m: float
+    max_spacing_m: float
+    wood_density_g_cm3: float
+    carbon_fraction: float
+    root_to_shoot_ratio: float
+    growth_rate_category: str
+    mature_height_m: float
+    canopy_spread_m: float
+    lifespan_years: int
+    suitable_planting_season: str
+    care_instructions: str
+    growth_milestones: Dict[str, Any]
+    coastal_protection_rating: str
+    wave_attenuation_capacity: str
+    biodiversity_benefits: str
+    soil_stabilisation_benefits: str
+    water_quality_benefits: str
+
+class PlantSpeciesCreate(BaseModel):
+    id: str
+    common_name: str
+    scientific_name: str
+    family: str
+    category: str
+    is_mangrove: bool = False
+    native_regions: List[str]
+    suitable_states: List[str]
+    suitable_locations: List[str]
+    suitable_soil_types: List[str]
+    suitable_land_types: List[str]
+    suitable_water_conditions: List[str]
+    salinity_tolerance_ppt: Dict[str, float]
+    tidal_frequency: str
+    planting_purposes: List[str]
+    recommended_spacing_m: float = 2.5
+    min_spacing_m: float = 2.0
+    max_spacing_m: float = 3.5
+    wood_density_g_cm3: float = 0.65
+    carbon_fraction: float = 0.48
+    root_to_shoot_ratio: float = 0.35
+    growth_rate_category: str = "Moderate"
+    mature_height_m: float = 15.0
+    canopy_spread_m: float = 6.0
+    lifespan_years: int = 50
+    suitable_planting_season: str
+    care_instructions: str
+    growth_milestones: Dict[str, Any]
+    coastal_protection_rating: str = "Moderate"
+    wave_attenuation_capacity: str
+    biodiversity_benefits: str
+    soil_stabilisation_benefits: str
+    water_quality_benefits: str
+
+class PlantRecommendationRequest(BaseModel):
+    country: str = "India"
+    state: Optional[str] = None
+    district: Optional[str] = None
+    location: Optional[str] = None # Coastal, Riverbank / Estuarine, Inland / Terrestrial, Urban, Island
+    soil_type: Optional[str] = None
+    land_type: Optional[str] = None
+    water_condition: Optional[str] = None
+    planting_purpose: Optional[str] = None
+    land_area: Optional[float] = None
+    number_of_plants: Optional[int] = None
+
+class GrowthCalculationRequest(BaseModel):
+    species_id: str
+    planting_date: str
+    number_of_plants: int = 100
+    initial_height_cm: Optional[float] = None
+    soil_condition: str = "Good"
+    sunlight_exposure: str = "Full Sun"
+    water_availability: str = "Optimal"
+    care_level: str = "Moderate"
+
+class LandAreaCalculationRequest(BaseModel):
+    species_id: str
+    number_of_plants: int = Field(..., gt=0)
+    available_land_area: float = Field(..., gt=0)
+    area_unit: str = "sq_meters" # sq_meters, sq_feet, acres, hectares
+    custom_spacing_m: Optional[float] = None
+    pathway_buffer_pct: float = 12.0
+
+class EnvironmentalBenefitsRequest(BaseModel):
+    species_id: str
+    number_of_plants: int = Field(..., gt=0)
+    land_area_ha: float = Field(..., gt=0)
+    stand_age_years: float = Field(default=5.0, gt=0, le=50)
+    survival_rate_pct: float = Field(default=85.0, ge=0, le=100)
+
+class PlantingProjectCreate(BaseModel):
+    project_name: str = Field(..., min_length=3, max_length=150)
+    country: str = "India"
+    state: str
+    district: Optional[str] = ""
+    location_name: str
+    species_id: str
+    species_name: str
+    scientific_name: str
+    number_of_plants: int = Field(..., gt=0)
+    land_area: float = Field(..., gt=0)
+    area_unit: str = "sq_meters"
+    planting_date: str # YYYY-MM-DD
+    status: str = Field(default="Planning") # Planning, Ready for planting, Planted, Growing, Monitoring, Completed
+    description: Optional[str] = ""
+    soil_type: Optional[str] = ""
+    water_condition: Optional[str] = ""
+    photos: List[str] = []
+
+class PlantingProjectUpdate(BaseModel):
+    project_name: Optional[str] = None
+    status: Optional[str] = None
+    number_of_plants: Optional[int] = None
+    land_area: Optional[float] = None
+    area_unit: Optional[str] = None
+    planting_date: Optional[str] = None
+    description: Optional[str] = None
+    soil_type: Optional[str] = None
+    water_condition: Optional[str] = None
+    photos: Optional[List[str]] = None
+
+class PlantingProjectResponse(PlantingProjectCreate):
+    id: str
+    user_id: str
+    user_name: str
+    user_email: str
+    estimated_biomass_kg: float
+    estimated_carbon_kg: float
+    estimated_co2e_kg: float
+    current_survival_pct: float
+    total_monitoring_logs: int
+    latest_height_cm: Optional[float] = None
+    created_at: str
+    updated_at: str
+
+class PlantMonitoringRecordCreate(BaseModel):
+    project_id: str
+    monitoring_date: str # YYYY-MM-DD
+    plant_height_cm: float = Field(..., gt=0)
+    surviving_plants: int = Field(..., ge=0)
+    dead_plants: int = Field(default=0, ge=0)
+    health_condition: str = Field(..., description="Excellent, Good, Fair, Poor, Critical")
+    soil_condition: str
+    water_condition: str
+    photo_url: Optional[str] = None
+    observations: Optional[str] = None
+
+class PlantMonitoringRecordResponse(PlantMonitoringRecordCreate):
+    id: str
+    user_id: str
+    survival_percentage: float
+    recommended_actions: List[str]
+    recorded_by: str
+    created_at: str
+
+class UserPlantingImpactResponse(BaseModel):
+    total_projects: int
+    total_plants_planted: int
+    total_surviving_plants: int
+    overall_survival_percentage: float
+    total_land_area_ha: float
+    total_land_area_sq_m: float
+    estimated_biomass_tonnes: float
+    estimated_carbon_storage_tonnes: float
+    estimated_co2e_tonnes: float
+    projects_by_status: Dict[str, int]
+    species_distribution: Dict[str, int]
+    plants_over_time: List[Dict[str, Any]]
+    carbon_accumulation_trajectory: List[Dict[str, Any]]
+
+# --- Support Ticket & Communication Models ---
+
+class TicketCategory(str, Enum):
+    PLANT_SELECTION = "Plant Selection"
+    MANGROVE_PLANTING = "Mangrove Planting"
+    SOIL_CONDITIONS = "Soil Conditions"
+    LAND_REQUIREMENTS = "Land Requirements"
+    WATER_REQUIREMENTS = "Water Requirements"
+    PLANT_GROWTH = "Plant Growth"
+    PLANT_DISEASES = "Plant Diseases"
+    CARBON_BENEFITS = "Carbon Benefits"
+    TECHNICAL_ASSISTANCE = "Technical Assistance"
+    PLANTING_ASSISTANCE = "Planting Assistance"
+    VERIFICATION_INQUIRY = "Verification Inquiry"
+    OTHER = "Other"
+
+class TicketStatus(str, Enum):
+    OPEN = "Open"
+    ASSIGNED = "Assigned"
+    IN_PROGRESS = "In Progress"
+    WAITING_USER = "Waiting for User"
+    RESOLVED = "Resolved"
+    CLOSED = "Closed"
+    REOPENED = "Reopened"
+
+class TicketMessageCreate(BaseModel):
+    message: str = Field(..., min_length=1, max_length=5000)
+    attachment_url: Optional[str] = None
+
+class TicketMessageResponse(BaseModel):
+    id: str
+    ticket_id: str
+    sender_id: str
+    sender_name: str
+    sender_role: str
+    message: str
+    attachment_url: Optional[str] = None
+    created_at: str
+
+class SiteParameters(BaseModel):
+    location: Optional[str] = None
+    available_land_area: Optional[float] = None
+    area_unit: Optional[str] = "sq_meters"
+    selected_species_id: Optional[str] = None
+    selected_species_name: Optional[str] = None
+    number_of_plants: Optional[int] = None
+    soil_type: Optional[str] = None
+    water_availability: Optional[str] = None
+    planting_purpose: Optional[str] = None
+
+class SupportTicketCreate(BaseModel):
+    subject: str = Field(..., min_length=3, max_length=250)
+    category: str = Field(default="Other")
+    description: str = Field(..., min_length=5, max_length=5000)
+    location: Optional[str] = None
+    attachment_url: Optional[str] = None
+    planting_project_id: Optional[str] = None
+    site_parameters: Optional[SiteParameters] = None
+    priority: Optional[str] = "Medium"
+
+class SupportTicketAssign(BaseModel):
+    assigned_to_id: str = Field(..., min_length=1)
+    priority: Optional[str] = None
+
+class SupportTicketStatusUpdate(BaseModel):
+    status: str
+    resolution_note: Optional[str] = None
+
+class SupportTicketResponse(BaseModel):
+    id: str
+    ticket_number: Optional[str] = "TKT-0000"
+    user_id: str
+    user_name: str
+    user_email: str
+    user_type: Optional[str] = None
+    subject: str
+    category: str
+    description: str
+    location: Optional[str] = None
+    attachment_url: Optional[str] = None
+    planting_project_id: Optional[str] = None
+    site_parameters: Optional[Dict[str, Any]] = None
+    status: str
+    priority: str = "Medium"
+    assigned_to_id: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    assigned_to_role: Optional[str] = None
+    created_at: str
+    updated_at: str
+    resolved_at: Optional[str] = None
+    resolution_note: Optional[str] = None
+    message_count: Optional[int] = None
+    last_message: Optional[str] = None
+    last_message_at: Optional[str] = None
+    messages: Optional[List[TicketMessageResponse]] = None
+
+class NotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    message: str
+    type: Optional[str] = "ticket"
+    category: Optional[str] = None
+    link: Optional[str] = None
+    related_id: Optional[str] = None
+    is_read: bool = False
+    created_at: str
+
+class StaffMemberResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    organization: Optional[str] = None
+    active_tickets_count: int = 0
+
+class CommunityDashboardResponse(BaseModel):
+    user_info: Dict[str, Any]
+    total_projects: int
+    total_plants_planted: int
+    total_surviving_plants: int
+    overall_survival_percentage: float
+    total_land_area_sq_m: float
+    total_land_area_ha: float
+    estimated_carbon_tonnes: float
+    estimated_co2e_tonnes: float
+    my_projects: List[Dict[str, Any]]
+    my_tickets: List[Dict[str, Any]]
+    active_tickets_count: int
+    unread_notifications_count: int
+    recent_notifications: List[NotificationResponse]
+    growth_milestones_summary: List[Dict[str, Any]]

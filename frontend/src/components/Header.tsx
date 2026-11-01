@@ -1,26 +1,47 @@
-import React from 'react';
-import { Menu, ShieldAlert, ShieldCheck, Database, FileDown, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Menu, ShieldAlert, ShieldCheck, Database, FileDown, RefreshCw, Bell, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { isCommunityUserRole } from '../types';
 
 interface HeaderProps {
   activePage: string;
   onToggleSidebar: () => void;
   blockchainMode: string;
   onRefresh?: () => void;
+  onNavigate?: (page: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activePage,
   onToggleSidebar,
   blockchainMode,
-  onRefresh
+  onRefresh,
+  onNavigate
 }) => {
   const { user } = useAuth();
+  const [unreadNotifs, setUnreadNotifs] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const checkNotifs = async () => {
+      try {
+        const res = await api.getNotifications(true);
+        setUnreadNotifs(res.unread_count);
+      } catch (e) {
+        // ignore
+      }
+    };
+    checkNotifs();
+    const interval = setInterval(checkNotifs, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const getPageTitle = (page: string) => {
     switch (page) {
       case 'dashboard': return 'Executive MRV Dashboard';
+      case 'community-dashboard': return 'Community Planter Dashboard';
+      case 'communication': return 'Communication Centre & Ask an Expert';
       case 'data': return 'Environmental Data Management';
       case 'biomass': return 'Aboveground Biomass (AGB) Estimation';
       case 'uncertainty': return 'Bootstrap Uncertainty Assessment';
@@ -29,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'blockchain': return 'Blockchain-Based MRV Registry';
       case 'verification': return 'Verification Task Management';
       case 'reports': return 'Analytics & Report Generation';
+      case 'planner': return 'Plant Growth & Blue Carbon Planner';
       case 'profile': return 'User Profile & Authorization';
       case 'settings': return 'System Settings & Connectivity';
       default: return 'Blue Carbon MRV System';
@@ -58,7 +80,9 @@ export const Header: React.FC<HeaderProps> = ({
             {getPageTitle(activePage)}
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Chave et al. (2014) Mangrove Pantropical Allometric Standard
+            {isCommunityUserRole(user?.role)
+              ? `Planter Portal • ${user?.name} (${user?.user_type || 'Farmer'})`
+              : 'Chave et al. (2014) Mangrove Pantropical Allometric Standard'}
           </p>
         </div>
       </div>
@@ -84,6 +108,20 @@ export const Header: React.FC<HeaderProps> = ({
           <span>MongoDB Active</span>
         </div>
 
+        {/* Notification Bell */}
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('communication')}
+            className="relative p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 transition-colors"
+            title="Communication Centre & Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadNotifs > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-navy-950" />
+            )}
+          </button>
+        )}
+
         {/* Refresh Button */}
         {onRefresh && (
           <button
@@ -95,15 +133,17 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* Quick PDF Export */}
-        <button
-          onClick={handleDownloadPdf}
-          className="flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gradient-to-r from-forest-700 to-ocean-600 text-white hover:from-forest-800 hover:to-ocean-700 transition shadow-sm"
-          title="Download Executive PDF Audit Report"
-        >
-          <FileDown className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Export PDF</span>
-        </button>
+        {/* Quick PDF Export (for staff) */}
+        {!isCommunityUserRole(user?.role) && (
+          <button
+            onClick={handleDownloadPdf}
+            className="flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gradient-to-r from-forest-700 to-ocean-600 text-white hover:from-forest-800 hover:to-ocean-700 transition shadow-sm"
+            title="Download Executive PDF Audit Report"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export PDF</span>
+          </button>
+        )}
       </div>
     </header>
   );

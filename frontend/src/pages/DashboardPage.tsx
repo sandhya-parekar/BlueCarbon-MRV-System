@@ -2,15 +2,16 @@ import React, { useEffect, useState } from 'react';
 import {
   Trees, Scale, AlertTriangle, ShieldCheck,
   TrendingUp, CheckCircle, Database, ChevronRight,
-  Layers, RefreshCw
+  Layers, RefreshCw, Sprout, ArrowRight, ShieldAlert
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  Tooltip, Cell, PieChart, Pie, Legend
+  Tooltip, Cell, PieChart, Pie, Legend, AreaChart, Area,
+  CartesianGrid, LineChart, Line
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { DashboardAnalytics, BlockchainRecord } from '../types';
+import { DashboardAnalytics, BlockchainRecord, UserPlantingImpact } from '../types';
 
 interface DashboardPageProps {
   onNavigate: (page: string) => void;
@@ -20,17 +21,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardAnalytics | null>(null);
   const [blockchainLogs, setBlockchainLogs] = useState<BlockchainRecord[]>([]);
+  const [plantingImpact, setPlantingImpact] = useState<UserPlantingImpact | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     try {
-      const [analytics, records] = await Promise.all([
+      const [analytics, records, impact] = await Promise.all([
         api.getAnalyticsDashboard(),
-        api.getBlockchainRecords()
+        api.getBlockchainRecords(),
+        api.getUserPlantingImpact().catch(() => null)
       ]);
       setData(analytics);
       setBlockchainLogs(records.slice(0, 5));
+      setPlantingImpact(impact);
     } catch (err) {
       console.error('Failed to load dashboard data', err);
     } finally {
@@ -255,6 +259,135 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* NEW MODULE INTEGRATION: MY PLANTING IMPACT & BLUE CARBON ACCUMULATION     */}
+      {/* ========================================================================= */}
+      {plantingImpact && (
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-white to-slate-50 dark:from-navy-900 dark:to-navy-950 border border-emerald-500/30 shadow-md space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-forest-600/10 text-forest-600 dark:text-emerald-400 flex items-center justify-center border border-forest-500/20">
+                <Sprout className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    My Planting Impact
+                  </h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                    Community Estimates (Pre-Verification)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Living restoration projects, survival audits, and projected blue carbon stocks.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onNavigate('planner')}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-forest-600 hover:bg-forest-500 text-white transition flex items-center space-x-1.5 shadow"
+            >
+              <span>Open Plant Growth Planner</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Impact KPI Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Projects</span>
+              <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{plantingImpact.total_projects}</p>
+              <span className="text-[9px] text-slate-400">Active plots</span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Total Planted</span>
+              <p className="text-lg font-bold text-forest-600 dark:text-emerald-400 mt-0.5">{plantingImpact.total_plants_planted.toLocaleString()}</p>
+              <span className="text-[9px] text-slate-400">Seedlings</span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Surviving Plants</span>
+              <p className="text-lg font-bold text-teal-600 dark:text-teal-400 mt-0.5">{plantingImpact.total_surviving_plants.toLocaleString()}</p>
+              <span className="text-[9px] text-teal-500">Live stock</span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Overall Survival</span>
+              <p className="text-lg font-bold text-emerald-500 mt-0.5">{plantingImpact.overall_survival_percentage}%</p>
+              <span className="text-[9px] text-slate-400">Target &gt; 85%</span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Land Area</span>
+              <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{plantingImpact.total_land_area_ha} ha</p>
+              <span className="text-[9px] text-slate-400">{plantingImpact.total_land_area_sq_m.toLocaleString()} m²</span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Biomass</span>
+              <p className="text-lg font-bold text-ocean-600 dark:text-ocean-400 mt-0.5">{plantingImpact.estimated_biomass_tonnes} Mg</p>
+              <span className="text-[9px] text-slate-400">Living AGB+BGB</span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <span className="text-[10px] font-medium text-slate-400 uppercase">Carbon Storage</span>
+              <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">{plantingImpact.estimated_co2e_tonnes} t CO₂e</p>
+              <span className="text-[9px] text-purple-400">{plantingImpact.estimated_carbon_storage_tonnes} t C</span>
+            </div>
+          </div>
+
+          {/* Impact Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Plants Over Time */}
+            <div className="p-4 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">Plants Planted Over Time (Cumulative)</span>
+                <span className="text-[10px] text-slate-400">Field Ingestion History</span>
+              </div>
+              <div className="h-44 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={plantingImpact.plants_over_time} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                    <XAxis dataKey="period" tick={{ fontSize: 9 }} stroke="#64748b" />
+                    <YAxis tick={{ fontSize: 9 }} stroke="#64748b" />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
+                    <Area type="monotone" dataKey="cumulative_planted" name="Cumulative Trees" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Carbon Accumulation Trajectory */}
+            <div className="p-4 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">5-Year Estimated Carbon Accumulation</span>
+                <span className="text-[10px] text-ocean-400">Allometric Model (t CO₂e)</span>
+              </div>
+              <div className="h-44 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={plantingImpact.carbon_accumulation_trajectory} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                    <XAxis dataKey="year" tick={{ fontSize: 9 }} stroke="#64748b" />
+                    <YAxis tick={{ fontSize: 9 }} stroke="#64748b" />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
+                    <Bar dataKey="estimated_co2e_tonnes" name="Estimated CO₂e (Tonnes)" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 text-[11px] text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/80">
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <span>
+              Disclaimer: Community planting impact values are ecological planning estimates. They remain distinct from audited and serialized blockchain carbon credits until verified through on-site field measurements.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Recent Blockchain Audit Activity */}
       <div className="p-5 rounded-2xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-slate-800 shadow-sm">

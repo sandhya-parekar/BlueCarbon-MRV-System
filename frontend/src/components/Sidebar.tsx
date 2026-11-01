@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Database, Scale, HelpCircle,
   Award, GitCompare, ShieldCheck, ClipboardCheck,
   BarChart3, UserCheck, Settings, LogOut, Waves,
-  ChevronRight, Moon, Sun
+  ChevronRight, Moon, Sun, Sprout, MessageSquare,
+  HeartHandshake, Bell, Trees
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { api } from '../services/api';
+import { isCommunityUserRole } from '../types';
 
 interface SidebarProps {
   activePage: string;
@@ -23,8 +26,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
-  const navSections = [
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnread = async () => {
+      try {
+        const res = await api.getNotifications(true);
+        setUnreadCount(res.unread_count);
+      } catch (e) {
+        // silently ignore error in background
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const isCommunityUser = isCommunityUserRole(user?.role);
+
+  const communitySections = [
+    {
+      title: 'COMMUNITY PLANTER',
+      items: [
+        { id: 'community-dashboard', label: 'Planter Dashboard', icon: LayoutDashboard },
+        { id: 'planner', label: 'Plant Growth Planner', icon: Sprout, badge: 'Planner' },
+      ]
+    },
+    {
+      title: 'COMMUNICATION & SUPPORT',
+      items: [
+        {
+          id: 'communication',
+          label: 'Communication Centre',
+          icon: MessageSquare,
+          badge: unreadCount > 0 ? `${unreadCount}` : 'Expert'
+        },
+      ]
+    },
+    {
+      title: 'SYSTEM & PROFILE',
+      items: [
+        { id: 'profile', label: 'My Profile', icon: UserCheck },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ]
+    }
+  ];
+
+  const staffSections = [
     {
       title: 'CORE MRV PIPELINE',
       items: [
@@ -50,6 +99,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
+      title: 'COMMUNITY & COMMUNICATION',
+      items: [
+        { id: 'planner', label: 'Plant Growth Planner', icon: Sprout },
+        {
+          id: 'communication',
+          label: 'Communication Centre',
+          icon: MessageSquare,
+          badge: unreadCount > 0 ? `${unreadCount}` : 'Staff'
+        },
+      ]
+    },
+    {
       title: 'SYSTEM',
       items: [
         { id: 'profile', label: 'User Profile', icon: UserCheck },
@@ -57,6 +118,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     }
   ];
+
+  const navSections = isCommunityUser ? communitySections : staffSections;
 
   return (
     <>
@@ -75,7 +138,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       `}>
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
+          <div
+            className="flex items-center space-x-3 cursor-pointer"
+            onClick={() => setActivePage(isCommunityUser ? 'community-dashboard' : 'dashboard')}
+          >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-forest-700 via-ocean-600 to-teal-400 flex items-center justify-center shadow-lg shadow-ocean-900/40">
               <Waves className="w-6 h-6 text-white" />
             </div>
@@ -84,7 +150,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>BlueCarbon</span>
                 <span className="text-ocean-400 font-extrabold text-xs px-1.5 py-0.5 rounded bg-ocean-950/70 border border-ocean-700/50">MRV</span>
               </h1>
-              <p className="text-[11px] text-slate-400">Uncertainty Prioritization</p>
+              <p className="text-[11px] text-slate-400">
+                {isCommunityUser ? 'Community Planter Portal' : 'Uncertainty Prioritization'}
+              </p>
             </div>
           </div>
         </div>
@@ -99,9 +167,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <p className="text-xs font-semibold text-slate-200 truncate">{user.name}</p>
               <div className="flex items-center space-x-1.5 mt-0.5">
                 <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                  user.role === 'Admin' ? 'bg-purple-400' : user.role === 'Verification Officer' ? 'bg-amber-400' : 'bg-emerald-400'
+                  user.role === 'Admin'
+                    ? 'bg-purple-400'
+                    : user.role === 'Verification Officer'
+                    ? 'bg-amber-400'
+                    : isCommunityUserRole(user.role)
+                    ? 'bg-teal-400'
+                    : 'bg-emerald-400'
                 }`} />
-                <p className="text-[10px] text-slate-400 font-medium truncate">{user.role}</p>
+                <p className="text-[10px] text-slate-400 font-medium truncate">
+                  {user.role} {user.user_type ? `(${user.user_type})` : ''}
+                </p>
               </div>
             </div>
           </div>
@@ -139,7 +215,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                       <div className="flex items-center space-x-1.5">
                         {item.badge && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${
+                            item.id === 'communication' && unreadCount > 0
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
                             {item.badge}
                           </span>
                         )}
@@ -186,3 +266,4 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+

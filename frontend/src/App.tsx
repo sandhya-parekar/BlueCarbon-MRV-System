@@ -14,15 +14,56 @@ import { ComparativeAnalysisPage } from './pages/ComparativeAnalysisPage';
 import { BlockchainRegistryPage } from './pages/BlockchainRegistryPage';
 import { VerificationManagementPage } from './pages/VerificationManagementPage';
 import { ReportsAnalyticsPage } from './pages/ReportsAnalyticsPage';
+import { PlantPlannerPage } from './pages/PlantPlannerPage';
+import { CommunityDashboardPage } from './pages/CommunityDashboardPage';
+import { CommunicationCentrePage } from './pages/CommunicationCentrePage';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { api } from './services/api';
+import { isCommunityUserRole, User } from './types';
+
+export const getDefaultPageForRole = (role?: string): string => {
+  if (!role) return 'dashboard';
+  const norm = role.toLowerCase().replace(/[\s_-]+/g, '');
+  if (norm.includes('community') || norm.includes('planter')) {
+    return 'community-dashboard';
+  }
+  if (norm.includes('verification') || norm.includes('verifier') || norm.includes('officer')) {
+    return 'verification';
+  }
+  if (norm.includes('researcher')) {
+    return 'dashboard';
+  }
+  if (norm.includes('admin')) {
+    return 'dashboard';
+  }
+  return 'dashboard';
+};
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
-  const [activePage, setActivePage] = useState<string>('dashboard');
+  const [activePage, setActivePage] = useState<string>(() => {
+    const token = localStorage.getItem('bluecarbon_token');
+    return token ? 'dashboard' : 'community-dashboard';
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [blockchainMode, setBlockchainMode] = useState<string>('SIMULATED_BLOCKCHAIN');
+
+  useEffect(() => {
+    if (user) {
+      const isCommunity = isCommunityUserRole(user.role);
+      if (isCommunity) {
+        const allowedCommunityPages = ['community-dashboard', 'planner', 'communication', 'profile', 'settings'];
+        if (!allowedCommunityPages.includes(activePage)) {
+          setActivePage('community-dashboard');
+        }
+      } else {
+        if (activePage === 'community-dashboard') {
+          setActivePage(getDefaultPageForRole(user.role));
+        }
+      }
+    }
+  }, [user, activePage]);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -36,6 +77,11 @@ const AppContent: React.FC = () => {
     fetchStatus();
   }, [activePage]);
 
+  const handleLoginSuccess = (loggedInUser: User) => {
+    const targetPage = getDefaultPageForRole(loggedInUser.role);
+    setActivePage(targetPage);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-200">
@@ -48,13 +94,17 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
-    return <LoginPage onSuccess={() => setActivePage('dashboard')} />;
+    return <LoginPage onSuccess={handleLoginSuccess} />;
   }
 
   const renderActivePage = () => {
     switch (activePage) {
       case 'dashboard':
         return <DashboardPage onNavigate={setActivePage} />;
+      case 'community-dashboard':
+        return <CommunityDashboardPage onNavigate={setActivePage} />;
+      case 'communication':
+        return <CommunicationCentrePage onNavigate={setActivePage} />;
       case 'data':
         return <DataManagementPage />;
       case 'biomass':
@@ -71,12 +121,16 @@ const AppContent: React.FC = () => {
         return <VerificationManagementPage />;
       case 'reports':
         return <ReportsAnalyticsPage />;
+      case 'planner':
+        return <PlantPlannerPage onNavigate={setActivePage} />;
       case 'profile':
         return <UserProfilePage />;
       case 'settings':
         return <SettingsPage />;
       default:
-        return <DashboardPage onNavigate={setActivePage} />;
+        return isCommunityUserRole(user.role)
+          ? <CommunityDashboardPage onNavigate={setActivePage} />
+          : <DashboardPage onNavigate={setActivePage} />;
     }
   };
 
@@ -96,6 +150,7 @@ const AppContent: React.FC = () => {
           activePage={activePage}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           blockchainMode={blockchainMode}
+          onNavigate={setActivePage}
           onRefresh={() => {
             // Trigger refresh
             window.location.reload();

@@ -77,7 +77,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 def require_role(allowed_roles: list[str]):
     def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
         user_role = current_user.get("role", "")
-        if user_role not in allowed_roles and "Admin" not in user_role:
+        norm_user_role = user_role.lower().replace(" ", "_")
+        norm_allowed = [r.lower().replace(" ", "_") for r in allowed_roles]
+        if norm_user_role not in norm_allowed and "admin" not in norm_user_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Operation not permitted. Required roles: {allowed_roles}, your role: {user_role}"

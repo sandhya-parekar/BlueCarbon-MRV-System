@@ -2,7 +2,13 @@ import {
   AuthResponse, User, DatasetStats, TreeMeasurement,
   BiomassSummary, UncertaintyAssessment, PrioritizationSummary,
   ComparativeAnalysis, BlockchainStatus, BlockchainRecord,
-  DashboardAnalytics
+  DashboardAnalytics, PlantSpecies, PlantRecommendationResponse,
+  GrowthCalculationResult, LandAreaCalculationResult,
+  EnvironmentalBenefitsResult, PlantingProject,
+  PlantMonitoringRecord, CalendarEvent, UserPlantingImpact,
+  CommunityRegisterPayload, SupportTicket, SupportTicketCreatePayload,
+  TicketMessage, StaffMember, NotificationItem, CommunityDashboardData,
+  CommunicationStats, TicketStatus
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1';
@@ -298,6 +304,326 @@ class ApiService {
     a.click();
     window.URL.revokeObjectURL(url);
     a.remove();
+  }
+
+  // --- Plant Growth & Blue Carbon Planner API ---
+
+  async getSpeciesList(params?: { category?: string; is_mangrove?: boolean; search?: string }): Promise<{ total: number; species: PlantSpecies[] }> {
+    const query = new URLSearchParams();
+    if (params?.category) query.append('category', params.category);
+    if (params?.is_mangrove !== undefined) query.append('is_mangrove', params.is_mangrove.toString());
+    if (params?.search) query.append('search', params.search);
+
+    const res = await fetch(`${API_BASE_URL}/planner/species?${query.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ total: number; species: PlantSpecies[] }>(res);
+  }
+
+  async getSingleSpecies(speciesId: string): Promise<PlantSpecies> {
+    const res = await fetch(`${API_BASE_URL}/planner/species/${speciesId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PlantSpecies>(res);
+  }
+
+  async createOrUpdateSpecies(data: any): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/planner/species`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<any>(res);
+  }
+
+  async getPlantRecommendations(params: {
+    country?: string;
+    state?: string;
+    district?: string;
+    location?: string;
+    soil_type?: string;
+    land_type?: string;
+    water_condition?: string;
+    planting_purpose?: string;
+    land_area?: number;
+    number_of_plants?: number;
+  }): Promise<PlantRecommendationResponse> {
+    const res = await fetch(`${API_BASE_URL}/planner/recommend`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(params),
+    });
+    return this.handleResponse<PlantRecommendationResponse>(res);
+  }
+
+  async calculateGrowth(params: {
+    species_id: string;
+    planting_date: string;
+    number_of_plants?: number;
+    initial_height_cm?: number;
+    soil_condition?: string;
+    sunlight_exposure?: string;
+    water_availability?: string;
+    care_level?: string;
+  }): Promise<GrowthCalculationResult> {
+    const res = await fetch(`${API_BASE_URL}/planner/calculate-growth`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(params),
+    });
+    return this.handleResponse<GrowthCalculationResult>(res);
+  }
+
+  async calculateLandArea(params: {
+    species_id: string;
+    number_of_plants: number;
+    available_land_area: number;
+    area_unit?: string;
+    custom_spacing_m?: number;
+    pathway_buffer_pct?: number;
+  }): Promise<LandAreaCalculationResult> {
+    const res = await fetch(`${API_BASE_URL}/planner/calculate-land`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(params),
+    });
+    return this.handleResponse<LandAreaCalculationResult>(res);
+  }
+
+  async calculateEnvironmentalBenefits(params: {
+    species_id: string;
+    number_of_plants: number;
+    land_area_ha: number;
+    stand_age_years?: number;
+    survival_rate_pct?: number;
+  }): Promise<EnvironmentalBenefitsResult> {
+    const res = await fetch(`${API_BASE_URL}/planner/calculate-benefits`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(params),
+    });
+    return this.handleResponse<EnvironmentalBenefitsResult>(res);
+  }
+
+  async getPlantingCalendar(speciesId?: string, region?: string): Promise<{ events: CalendarEvent[] }> {
+    const query = new URLSearchParams();
+    if (speciesId) query.append('species_id', speciesId);
+    if (region) query.append('region', region);
+
+    const res = await fetch(`${API_BASE_URL}/planner/calendar?${query.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ events: CalendarEvent[] }>(res);
+  }
+
+  async getPlantingProjects(userId?: string): Promise<{ total: number; projects: PlantingProject[] }> {
+    const query = new URLSearchParams();
+    if (userId) query.append('user_id', userId);
+
+    const res = await fetch(`${API_BASE_URL}/planner/projects?${query.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ total: number; projects: PlantingProject[] }>(res);
+  }
+
+  async getProjectDetails(projectId: string): Promise<PlantingProject> {
+    const res = await fetch(`${API_BASE_URL}/planner/projects/${projectId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<PlantingProject>(res);
+  }
+
+  async createPlantingProject(project: Partial<PlantingProject>): Promise<{ message: string; project: PlantingProject }> {
+    const res = await fetch(`${API_BASE_URL}/planner/projects`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(project),
+    });
+    return this.handleResponse<{ message: string; project: PlantingProject }>(res);
+  }
+
+  async updatePlantingProject(projectId: string, project: Partial<PlantingProject>): Promise<{ message: string; project: PlantingProject }> {
+    const res = await fetch(`${API_BASE_URL}/planner/projects/${projectId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(project),
+    });
+    return this.handleResponse<{ message: string; project: PlantingProject }>(res);
+  }
+
+  async deletePlantingProject(projectId: string): Promise<{ message: string }> {
+    const res = await fetch(`${API_BASE_URL}/planner/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(res);
+  }
+
+  async getMonitoringRecords(projectId?: string): Promise<{ total: number; records: PlantMonitoringRecord[] }> {
+    const query = new URLSearchParams();
+    if (projectId) query.append('project_id', projectId);
+
+    const res = await fetch(`${API_BASE_URL}/planner/monitoring?${query.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ total: number; records: PlantMonitoringRecord[] }>(res);
+  }
+
+  async createMonitoringRecord(record: Partial<PlantMonitoringRecord>): Promise<{ message: string; record: PlantMonitoringRecord }> {
+    const res = await fetch(`${API_BASE_URL}/planner/monitoring`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(record),
+    });
+    return this.handleResponse<{ message: string; record: PlantMonitoringRecord }>(res);
+  }
+
+  async deleteMonitoringRecord(recordId: string): Promise<{ message: string }> {
+    const res = await fetch(`${API_BASE_URL}/planner/monitoring/${recordId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(res);
+  }
+
+  async getUserPlantingImpact(): Promise<UserPlantingImpact> {
+    const res = await fetch(`${API_BASE_URL}/planner/user-impact`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<UserPlantingImpact>(res);
+  }
+
+  // ==============================================================================
+  // COMMUNITY & COMMUNICATION SYSTEM
+  // ==============================================================================
+
+  async registerCommunity(payload: CommunityRegisterPayload): Promise<User> {
+    const res = await fetch(`${API_BASE_URL}/auth/register-community`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<User>(res);
+  }
+
+  async getCommunityDashboard(): Promise<CommunityDashboardData> {
+    const res = await fetch(`${API_BASE_URL}/community/dashboard`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CommunityDashboardData>(res);
+  }
+
+  async getSupportTickets(params?: {
+    category?: string;
+    status?: string;
+    search?: string;
+  }): Promise<{ total: number; tickets: SupportTicket[] }> {
+    const query = new URLSearchParams();
+    if (params?.category) query.append('category', params.category);
+    if (params?.status) query.append('status', params.status);
+    if (params?.search) query.append('search', params.search);
+
+    const res = await fetch(`${API_BASE_URL}/communication/tickets?${query.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ total: number; tickets: SupportTicket[] }>(res);
+  }
+
+  async getSupportTicketDetails(ticketId: string): Promise<SupportTicket> {
+    const res = await fetch(`${API_BASE_URL}/communication/tickets/${ticketId}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<SupportTicket>(res);
+  }
+
+  async createSupportTicket(payload: SupportTicketCreatePayload): Promise<SupportTicket> {
+    const res = await fetch(`${API_BASE_URL}/communication/tickets`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<SupportTicket>(res);
+  }
+
+  async replySupportTicket(
+    ticketId: string,
+    message: string,
+    attachment_url?: string
+  ): Promise<TicketMessage> {
+    const res = await fetch(`${API_BASE_URL}/communication/tickets/${ticketId}/reply`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ message, attachment_url }),
+    });
+    return this.handleResponse<TicketMessage>(res);
+  }
+
+  async updateTicketStatus(
+    ticketId: string,
+    status: TicketStatus,
+    resolution_note?: string
+  ): Promise<SupportTicket> {
+    const res = await fetch(`${API_BASE_URL}/communication/tickets/${ticketId}/status`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status, resolution_note }),
+    });
+    return this.handleResponse<SupportTicket>(res);
+  }
+
+  async assignSupportTicket(
+    ticketId: string,
+    assignedToId: string,
+    priority?: string
+  ): Promise<SupportTicket> {
+    const res = await fetch(`${API_BASE_URL}/communication/tickets/${ticketId}/assign`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ assigned_to_id: assignedToId, priority }),
+    });
+    return this.handleResponse<SupportTicket>(res);
+  }
+
+  async getStaffMembers(): Promise<StaffMember[]> {
+    const res = await fetch(`${API_BASE_URL}/communication/staff`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<StaffMember[]>(res);
+  }
+
+  async getNotifications(
+    unreadOnly: boolean = false
+  ): Promise<{ unread_count: number; total: number; notifications: NotificationItem[] }> {
+    const query = new URLSearchParams();
+    if (unreadOnly) query.append('unread_only', 'true');
+
+    const res = await fetch(`${API_BASE_URL}/communication/notifications?${query.toString()}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ unread_count: number; total: number; notifications: NotificationItem[] }>(res);
+  }
+
+  async markNotificationRead(notificationId: string): Promise<{ message: string }> {
+    const res = await fetch(`${API_BASE_URL}/communication/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(res);
+  }
+
+  async markAllNotificationsRead(): Promise<{ message: string }> {
+    const res = await fetch(`${API_BASE_URL}/communication/notifications/read-all`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ message: string }>(res);
+  }
+
+  async getCommunicationStats(): Promise<CommunicationStats> {
+    const res = await fetch(`${API_BASE_URL}/communication/stats`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<CommunicationStats>(res);
   }
 }
 

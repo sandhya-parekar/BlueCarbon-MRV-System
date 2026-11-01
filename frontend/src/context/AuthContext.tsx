@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole, CommunityRegisterPayload, isCommunityUserRole } from '../types';
 import { api } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
-  register: (name: string, email: string, pass: string, role: string, org?: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<User>;
+  register: (name: string, email: string, pass: string, role: string, org?: string) => Promise<User>;
+  registerCommunity: (payload: CommunityRegisterPayload) => Promise<User>;
   logout: () => void;
   hasRole: (roles: UserRole[]) => boolean;
 }
@@ -38,24 +39,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, pass: string): Promise<User> => {
     setLoading(true);
     try {
       const data = await api.login(email, pass);
       localStorage.setItem('bluecarbon_token', data.access_token);
       setToken(data.access_token);
       setUser(data.user);
+      return data.user;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (name: string, email: string, pass: string, role: string, org?: string) => {
+  const register = async (name: string, email: string, pass: string, role: string, org?: string): Promise<User> => {
     setLoading(true);
     try {
       await api.register(name, email, pass, role, org);
       // Auto-login after registration
-      await login(email, pass);
+      return await login(email, pass);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registerCommunity = async (payload: CommunityRegisterPayload): Promise<User> => {
+    setLoading(true);
+    try {
+      await api.registerCommunity(payload);
+      // Auto-login after registration
+      return await login(payload.email, payload.password);
     } finally {
       setLoading(false);
     }
@@ -63,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('bluecarbon_token');
+    sessionStorage.clear();
     setToken(null);
     setUser(null);
   };
@@ -70,11 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasRole = (roles: UserRole[]): boolean => {
     if (!user) return false;
     if (user.role === 'Admin') return true; // Admin has super-access
-    return roles.includes(user.role);
+    return roles.some(r => r === user.role || (isCommunityUserRole(r) && isCommunityUserRole(user.role)));
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, registerCommunity, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );
